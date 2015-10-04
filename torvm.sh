@@ -24,6 +24,7 @@ TUNRANGE=$(sipcalc $TUNIF | awk -F'[ \t]- ' '/Usable range\s*-/ {print $2 " " $3
 
 # ask for pw early and do something with iptables to fail early (no cleanup necessary)
 sudo iptables -t nat -L
+# TODO: also for dhcpd
 
 TORCONFIG=$(mktemp)
 TORDATA=$(mktemp -d)
@@ -35,13 +36,13 @@ DataDirectory ${TORDATA}
 TransPort ${TUNIP}:${TCPPORT}
 DNSPort ${TUNIP}:${DNSPORT}
 SocksPort 0
-
 EOF
 
 DHCPCONFIG=$(mktemp)
 DHCPLEASE=$(mktemp)
 DHCPPID=$(mktemp)
 cat << EOF > $DHCPCONFIG
+# Temp DHCPD config
 subnet $TUNNET netmask $TUNMASK {
   range ${TUNRANGE};
   option routers ${TUNIP};
@@ -56,6 +57,7 @@ sudo /bin/sh -x << EOF
 chown nobody:nobody $TORCONFIG $TORDATA
 
 dhcpd -cf $DHCPCONFIG -lf $DHCPLEASE -pf $DHCPPID $TUNIF
+# started in background
 
 iptables -t nat -A PREROUTING -i $TUNIF -p udp --dport 53 -j REDIRECT --to-ports $DNSPORT
 iptables -t nat -A PREROUTING -i $TUNIF -p tcp --syn -j REDIRECT --to-ports $TCPPORT
